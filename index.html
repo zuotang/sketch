@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <canvas id="myCanvas" width="2000" height="1000"></canvas>
+    <script>
+      var worldX = 0;
+      var worldY = 0;
+      var zoom = 5;
+
+      function handleDrag() {
+        var startX = 0;
+        var startY = 0;
+        var startTargetX = 0;
+        var startTargetY = 0;
+        function handleMouseMove(e) {
+          let moveX = e.clientX - startX;
+          let moveY = e.clientY - startY;
+          worldX = startTargetX + moveX;
+          worldY = startTargetY + moveY;
+          render();
+        }
+        function handleMouseUp(e) {
+          window.removeEventListener("mouseup", handleMouseUp);
+          window.removeEventListener("mousemove", handleMouseMove);
+          console.log("结束");
+        }
+
+        function handleMouseDown(e) {
+          window.addEventListener("mouseup", handleMouseUp);
+          window.addEventListener("mousemove", handleMouseMove);
+          startX = e.clientX;
+          startY = e.clientY;
+          startTargetX = worldX;
+          startTargetY = worldY;
+          console.log("开始拖动");
+        }
+        canvas.addEventListener("mousedown", handleMouseDown);
+
+        //滑轮缩放处理
+        function handleMouseWheel(e) {
+          e.preventDefault();
+          if (event.deltaY > 0) {
+            if (zoom > 0) {
+              zoom--;
+            }
+          } else if (zoom < 19) {
+            zoom++;
+          }
+          worldX = 0;
+          worldY = 0;
+          console.log(zoom);
+          render();
+        }
+        canvas.addEventListener("wheel", handleMouseWheel);
+      }
+
+      let colors = [];
+      var canvas = document.getElementById("myCanvas");
+      var ctx = canvas.getContext("2d");
+
+      var tileURI = "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+      handleDrag();
+
+      let size = 256;
+      let showSize = 1000;
+
+      function getTileImage(z, x, y) {
+        return new Promise((resolve, reject) => {
+          let url = tileURI.replace("{x}", x).replace("{y}", y).replace("{z}", z);
+          let img = new Image();
+          img.onload = () => resolve(img);
+          img.src = url;
+        });
+      }
+
+      async function layer() {
+        let buffer = 300;
+        if (!colors[zoom]) {
+          colors[zoom] = [];
+        }
+
+        let wx = parseInt(worldX / size) * -1;
+        let wy = parseInt(worldY / size) * -1;
+        for (let showY = 0; showY < 5; showY++) {
+          for (let showX = 0; showX < 5; showX++) {
+            let x = wx + showX;
+            let y = wy + showY;
+            function getXY() {
+              let boxX = worldX + x * (size + 2);
+              let boxY = worldY + y * (size + 2);
+              return [boxX, boxY];
+            }
+
+            if (!colors[zoom][y]) {
+              colors[zoom][y] = [];
+            }
+            if (!colors[zoom][y][x]) {
+              colors[zoom][y][x] = false;
+              getTileImage(zoom, x, y).then((img) => {
+                let [boxX, boxY] = getXY();
+                colors[zoom][y][x] = img;
+                ctx.drawImage(colors[zoom][y][x], boxX, boxY, size, size);
+              });
+            } else {
+              let [boxX, boxY] = getXY();
+              ctx.drawImage(colors[zoom][y][x], boxX, boxY, size, size);
+            }
+          }
+        }
+      }
+
+      function boxBorder() {
+        ctx.beginPath();
+        ctx.lineWidth = "5";
+        ctx.strokeStyle = "green";
+        ctx.moveTo(0, 0);
+        ctx.lineTo(showSize, 0);
+        ctx.lineTo(showSize, showSize);
+        ctx.lineTo(0, showSize);
+        ctx.lineTo(0, 0);
+        ctx.stroke();
+      }
+
+      function render() {
+        ctx.clearRect(0, 0, 2000, 1000);
+        layer();
+        boxBorder();
+      }
+      render();
+    </script>
+  </body>
+</html>
